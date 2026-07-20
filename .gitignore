@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.state/
+logs/
+# Secrets — never commit
+token.json
+credentials.json
+.env
+# Local state / databases (contain real email metadata + checkpoints)
+state/*.db
+state/*.db.*
+# Scratch logs
+*.log
+nul
+dryrun*.log
+live_run*.log
+# Build artifacts
+*.egg-info/
+.pytest_cache/

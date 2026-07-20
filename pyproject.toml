@@ -1,0 +1,25 @@
+[project]
+name = "gmail-agent"
+version = "1.0.0"
+description = "Intelligent Gmail management agent (checkpoint-resumable, classify + trash)"
+requires-python = ">=3.11"
+dependencies = [
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "openai",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = { find = { include = ["gmail_agent*"] } }
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
