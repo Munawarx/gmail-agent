@@ -61,13 +61,21 @@ dedup).
 
 ## 3. AI Model Selection
 
-* **Primary: deterministic rule engine** (`classifier.py`). Covers ~95% of
-  volume (OTP/social/promo) with regex + sender heuristics. Fast, free,
-  explainable — satisfies "minimize API calls" and "high speed".
-* **Optional escalation: LLM** (`USE_LLM=true`). For emails the rules score as
-  borderline, an LLM (e.g. `gpt-4o-mini`) makes the call. Off by default to
-  keep cost ~$0.
-* No fine-tuning required; the rules are the model.
+* **Rule engine (default):** `classifier.py` covers ~95% of volume (OTP/social/promo)
+  with regex + sender heuristics. Fast, free, explainable.
+* **LLM escalation tier (HY3-primary) — `llm.py`:** borderline emails the rules
+  score as `KEEP` are escalated to an LLM for a final call.
+  * **PRIMARY model = HY3** (`tencent/hy3` via OpenRouter). This is the project
+    default and matches the Hermes agent's default model.
+  * **FALLBACK:** if HY3 is unavailable, automatically uses
+    `google/gemma-4-26b-a4b-it:free` (or `LLM_FALLBACK_MODEL`). Fallback only
+    triggers on HY3 failure — never by default.
+  * The LLM can ONLY promote `KEEP` → `{PROMO, SOCIAL, OTP_EXPIRED}`. It can
+    NEVER downgrade security/account/financial (`IMPORTANT`) mail — the rules
+    are always the authority for anything that must be kept.
+  * API key: `LLM_API_KEY` in `.env`, or auto-reused from the Hermes gateway
+    `.env` (`OPENROUTER_API_KEY`) so there's a single key to manage.
+  * `USE_LLM=true` enables the tier; off by default to keep cost ~$0.
 
 ---
 

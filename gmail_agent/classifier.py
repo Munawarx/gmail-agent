@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
 from .schemas import Category, Classification, Email
+from . import config
+from .llm import get_llm_classifier
 
 OTP_PATTERNS = [
     r"\b(otp|one[- ]?time (?:password|code)|verification code|security code)\b",
@@ -146,3 +148,81 @@ def classify(email: Email) -> Classification:
         return Classification(Category.PROMO, f"{promo_hits} promo phrases", 0.8)
 
     return Classification(Category.KEEP, "No trash rule matched", 1.0)
+
+
+def classify_with_llm_escalation(email: Email, settings: dict | None = None) -> Classification:
+    """Run the deterministic rules first. If they return KEEP (borderline,
+    low confidence), escalate to the LLM tier (HY3-primary, with fallback).
+    The LLM can only promote KEEP -> {PROMO, SOCIAL, OTP_EXPIRED}; it can
+    never downgrade an IMPORTANT/security email, because rules already gave
+    those a concrete non-KEEP category or the LLM simply can't return them.
+    """
+    base = classify(email)
+    # Only borderline (KEEP) emails get escalated to the LLM.
+    if base.category is not Category.KEEP:
+        return base
+    settings = settings or config.get_settings()
+    llm = get_llm_classifier(settings)
+    if llm is None:
+        return base
+    try:
+        llm_cls = llm.classify(email)
+    except Exception as e:  # noqa: BLE001
+        print(f"[classifier] LLM escalation error: {e!r}")
+        return base
+    if llm_cls is None:
+        return base
+    # LLM only emits PROMO/SOCIAL/OTP_EXPIRED (see llm._ALLOWED); keep rules
+    # as the authority for anything else.
+    return llm_cls
+
+
+def classify_with_learning(email: Email, settings: dict | None = None) -> tuple[Classification, str]:
+    """Full classification pipeline with learned-pattern integration.
+
+    Priority (highest first):
+      1. Deterministic safety rules (OTP, IMPORTANT/security) — ALWAYS win
+      2. Learned patterns from user's trash behavior (learning.py)
+      3. Deterministic rules (social, promo)
+      4. LLM escalation (if enabled)
+
+    Returns (Classification, action) where action is 'trash' / 'flag' / 'keep'.
+    """
+    from . import learning
+
+    # ── Tier 1: Deterministic safety — ALWAYS wins ──
+    base = classify(email)
+    if base.category in (Category.OTP_VALID, Category.IMPORTANT):
+        return base, "keep"
+
+    # Expired OTPs from rules — safe to trash
+    if base.category == Category.OTP_EXPIRED:
+        return base, "trash"
+
+    # ── Tier 2: Learned patterns ──
+    learned_cls, learned_action = learning.classify_learned(email)
+    if learned_action == "trash":
+        return learned_cls, "trash"
+    if learned_action == "flag":
+        # Store the flag but continue to rules/LLM — rules might upgrade
+        # to confident trash
+        pass
+
+    # ── Tier 3: Deterministic rules (social, promo) ──
+    if base.category == Category.PROMO:
+        return base, "trash"
+    if base.category == Category.SOCIAL:
+        return base, "trash"
+
+    # ── Tier 4: Learned flag (if rules didn't upgrade) ──
+    if learned_action == "flag":
+        return learned_cls, "flag"
+
+    # ── Tier 5: LLM escalation ──
+    if settings and settings.get("use_llm"):
+        llm_result = classify_with_llm_escalation(email, settings)
+        if llm_result.category in (Category.PROMO, Category.SOCIAL, Category.OTP_EXPIRED):
+            return llm_result, "trash"
+
+    # ── Default: keep ──
+    return Classification(Category.KEEP, "No trash rule matched", 1.0), "keep"

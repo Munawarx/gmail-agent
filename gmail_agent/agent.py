@@ -126,7 +126,11 @@ def run(dry_run: bool = False, max_emails: int = 0,
                     continue
 
                 try:
-                    cls: Classification = classifier.classify(email)
+                    cls: Classification = classifier.classify_with_learning(email, settings)
+                    if isinstance(cls, tuple):
+                        cls, action = cls
+                    else:
+                        action = "none"
                 except Exception as e:  # noqa: BLE001
                     store.log(LogEntry(mid, email.subject, email.sender,
                                         email.received_at, "unknown", "none",
@@ -134,9 +138,15 @@ def run(dry_run: bool = False, max_emails: int = 0,
                     errors += 1
                     continue
 
-                action = "none"
-                if cls.category in (Category.OTP_EXPIRED, Category.SOCIAL, Category.PROMO):
-                    action = "trash"
+                # Determine action based on classification + learning
+                if action == "none":
+                    if cls.category in (Category.OTP_EXPIRED, Category.SOCIAL, Category.PROMO):
+                        action = "trash"
+                    elif cls.category in (Category.KEEP, Category.OTP_VALID, Category.IMPORTANT):
+                        action = "keep"
+
+                # Execute action
+                if action == "trash":
                     if not dry_run:
                         try:
                             client.trash(mid)
@@ -146,16 +156,19 @@ def run(dry_run: bool = False, max_emails: int = 0,
                                                 email.received_at, cls.category.value,
                                                 "trash", "error", str(e)))
                             errors += 1
-                            # still advance checkpoint so we don't loop forever
                             store.save_checkpoint(mid, email.received_at)
                             processed += 1
                             continue
+
+                elif action == "flag":
+                    # Medium confidence — log for review but don't trash
+                    print(f"  ⚠️ FLAGGED for review: {email.short()} (conf={cls.confidence:.2f})")
 
                 store.log(LogEntry(mid, email.subject, email.sender, email.received_at,
                                     cls.category.value, action, "processed"))
                 store.save_checkpoint(mid, email.received_at)
                 processed += 1
-                print(f"[agent] {email.short()} -> {cls.category.value} ({action})")
+                print(f"[agent] {email.short()} -> {cls.category.value}/{action} (conf={cls.confidence:.2f})")
             if not page_token:
                 break
             if max_emails and processed >= max_emails:

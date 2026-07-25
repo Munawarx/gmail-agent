@@ -18,3 +18,16 @@ live_run*.log
 # Build artifacts
 *.egg-info/
 .pytest_cache/
+venv/
+__pycache__/
+*.pyc
+state/
+logs/
+token.json
+credentials.json
+gmail_agent.egg-info/
+scan_results.json
+trash_analysis.json
+classification_results.json
+tab_analysis.json
+trash_plan.json

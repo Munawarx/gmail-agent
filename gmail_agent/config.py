@@ -14,21 +14,43 @@ Required .env keys (imap mode):
   GMAIL_APP_PASSWORD    -> 16-char App Password (generate after enabling 2-Step Verification)
   GMAIL_IMAP_HOST       -> imap.gmail.com (default if unset)
 
-Optional:
-  OPENAI_API_KEY        -> optional; enables LLM classification tier
+LLM escalation tier (optional; USE_LLM=true to enable):
+  Default model is HY3 (tencent/hy3 via OpenRouter). Falls back to a free
+  model automatically if HY3 is unavailable.
+  USE_LLM               -> true/false (default false) — use LLM for borderline emails
+  LLM_API_KEY           -> OpenRouter API key. If unset, we look for
+                           OPENROUTER_API_KEY in the Hermes gateway .env
+                           (%LOCALAPPDATA%/hermes/.env).
+  LLM_MODEL             -> primary model (default tencent/hy3 = HY3)
+  LLM_FALLBACK_MODEL    -> fallback model (default google/gemma-4-26b-a4b-it:free)
+  LLM_BASE_URL          -> OpenAI-compatible endpoint (default OpenRouter)
+  LLM_TIMEOUT           -> per-request seconds (default 25)
+
+Other optional:
   LOG_DIR               -> where run logs go (default: ./logs)
   DB_PATH               -> SQLite file (default: ./state/gmail_agent.db)
   DRY_RUN               -> true/false (default false) — analyze but don't trash
-  USE_LLM               -> true/false (default false) — use LLM for hard cases
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ENV_PATH = ROOT / ".env"
 DEFAULT_DB = ROOT / "state" / "gmail_agent.db"
 DEFAULT_LOGDIR = ROOT / "logs"
+
+# Hermes gateway .env holds OPENROUTER_API_KEY (shared so the Gmail agent
+# reuses the same key that Hermes uses for HY3/other models).
+_HERMES_ENV = Path(
+    os.environ.get("LOCALAPPDATA", "%LOCALAPPDATA%")
+) / "hermes" / ".env"
+
+# HY3-first defaults for the LLM escalation tier.
+DEFAULT_LLM_MODEL = "tencent/hy3"
+DEFAULT_LLM_FALLBACK = "google/gemma-4-26b-a4b-it:free"
+DEFAULT_LLM_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 def load_env(path: Path = ENV_PATH) -> dict:
@@ -44,8 +66,28 @@ def load_env(path: Path = ENV_PATH) -> dict:
     return data
 
 
+def _read_key_from_file(path: str, key: str) -> str:
+    """Best-effort read of a single KEY=VALUE line from a .env file."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                if k.strip() == key:
+                    return v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
 def get_settings() -> dict:
     env = load_env()
+    # Reuse the Hermes gateway key if the project .env doesn't set its own.
+    llm_api_key = env.get("LLM_API_KEY", "")
+    if not llm_api_key and _HERMES_ENV.exists():
+        llm_api_key = _read_key_from_file(str(_HERMES_ENV), "OPENROUTER_API_KEY")
     return {
         "user_email": env.get("GMAIL_USER_EMAIL", ""),
         "mode": env.get("GMAIL_MODE", "oauth").lower(),
@@ -54,6 +96,11 @@ def get_settings() -> dict:
         "app_password": env.get("GMAIL_APP_PASSWORD", ""),
         "imap_host": env.get("GMAIL_IMAP_HOST", "imap.gmail.com"),
         "openai_api_key": env.get("OPENAI_API_KEY", ""),
+        "llm_api_key": llm_api_key,
+        "llm_model": env.get("LLM_MODEL", DEFAULT_LLM_MODEL),
+        "llm_fallback_model": env.get("LLM_FALLBACK_MODEL", DEFAULT_LLM_FALLBACK),
+        "llm_base_url": env.get("LLM_BASE_URL", DEFAULT_LLM_BASE_URL),
+        "llm_timeout": int(env.get("LLM_TIMEOUT", "25") or 25),
         "db_path": Path(env.get("DB_PATH", str(DEFAULT_DB))),
         "log_dir": Path(env.get("LOG_DIR", str(DEFAULT_LOGDIR))),
         "dry_run": str(env.get("DRY_RUN", "false")).lower() == "true",
