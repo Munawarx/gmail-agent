@@ -31,3 +31,5 @@ trash_analysis.json
 classification_results.json
 tab_analysis.json
 trash_plan.json
+
+.env.EDITME.txt

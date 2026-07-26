@@ -1,0 +1,12 @@
+# Leadline configuration — Captain's ecosystem
+# Mode: advisory (audit-only, never blocks). Promote to 'enforce' only after
+# Claude Code is available and the packs are trusted.
+mode: advisory
+
+# Load shipped policy packs (each carries a 'why' burn receipt)
+packs:
+  - prerequisite-before-protected-ops
+  - code-intelligence-before-raw-search
+  - authoritative-source-before-memory
+
+# Provider map is in policy/routes.yaml (family -> tool). Default is fine.

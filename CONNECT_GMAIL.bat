@@ -42,7 +42,7 @@ echo [ok] wrote .env from your edits.
 echo.
 echo [*] Running SAFE DRY-RUN (reads your inbox, moves nothing)...
 echo.
-.venv\Scripts\python.exe -m gmail_agent.cli run --dry-run
+call ".venv\Scripts\python.exe" -m gmail_agent.cli run --dry-run
 echo.
 echo ============================================================
 echo   DRY-RUN DONE. Above you should see emails it WOULD trash.

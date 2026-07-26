@@ -42,7 +42,7 @@
   <Actions Context="Author">
     <Exec>
       <Command>wscript.exe</Command>
-      <Arguments>//B //Nologo "%~dp0\gmail_agent_task.vbs"</Arguments>
+      <Arguments>//B //Nologo "C:\PATH\TO\gmail_agent\gmail_agent_task.vbs"</Arguments>
     </Exec>
   </Actions>
 </Task>
