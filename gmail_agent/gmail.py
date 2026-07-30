@@ -8,7 +8,6 @@ DRY_RUN at the agent level (this client just executes what it's told).
 from __future__ import annotations
 
 import os
-import pickle
 import imaplib
 from pathlib import Path
 from typing import Iterable

@@ -156,8 +156,11 @@ def run(dry_run: bool = False, max_emails: int = 0,
                                                 email.received_at, cls.category.value,
                                                 "trash", "error", str(e)))
                             errors += 1
-                            store.save_checkpoint(mid, email.received_at)
-                            processed += 1
+                            # Retry contract: do NOT advance the checkpoint past a
+                            # failed email, so the next run re-evaluates it. The
+                            # failed row stays status='error' (already_processed()
+                            # ignores 'error'), guaranteeing a retry instead of a
+                            # silent permanent skip.
                             continue
 
                 elif action == "flag":

@@ -140,8 +140,21 @@ def classify(email: Email) -> Classification:
     # otherwise require at least 2 promo phrases in the content.
     # Domain match is suffix-anchored so 'mail.' matches 'e.adobe.com' but
     # NOT 'gmail.com' (which merely contains the substring 'mail.').
+    # A PROMO_DOMAINS entry may be a full domain (e.g. "e.adobe.com") or a
+    # subdomain prefix (e.g. "engage.", "mail.", "comms."). Match either:
+    #   * exact domain equality, OR
+    #   * the sender domain IS that subdomain, OR
+    #   * the sender domain is a child of that subdomain (e.g.
+    #     "engage.canva.com" under prefix "engage."), which requires the
+    #     prefix to end with '.' and the sender domain to *start with* it.
+    def _domain_is_promo(d: str) -> bool:
+        if domain == d:
+            return True
+        if d.endswith("."):  # subdomain-prefix form, e.g. "engage."
+            return domain == d[:-1] or domain.startswith(d)
+        return False
     promo_sender = any(addr.startswith(s) for s in PROMO_SENDERS) or \
-        any(domain == d or domain.endswith("." + d) for d in PROMO_DOMAINS)
+        any(_domain_is_promo(d) for d in PROMO_DOMAINS)
     if promo_sender:
         return Classification(Category.PROMO, "Bulk/marketing sender", 0.85)
     if promo_hits >= 2:

@@ -7,24 +7,27 @@ logs/
 token.json
 credentials.json
 .env
+
 # Local state / databases (contain real email metadata + checkpoints)
 state/*.db
 state/*.db.*
+state/feedback.json
+# The seed/learned-patterns knowledge base IS tracked (default rules); user
+# runtime state (gmail_agent.db, feedback.json) stays ignored above.
+!state/learned_patterns.json
+
 # Scratch logs
 *.log
 nul
 dryrun*.log
 live_run*.log
+
 # Build artifacts
 *.egg-info/
 .pytest_cache/
 venv/
-__pycache__/
-*.pyc
-state/
-logs/
-token.json
-credentials.json
+
+# Generated analysis outputs
 gmail_agent.egg-info/
 scan_results.json
 trash_analysis.json
@@ -32,4 +35,5 @@ classification_results.json
 tab_analysis.json
 trash_plan.json
 
+# Local env template (keep the EDITME placeholder out of git; .env is already ignored)
 .env.EDITME.txt

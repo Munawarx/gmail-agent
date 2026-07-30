@@ -78,8 +78,12 @@ class Store:
         self.conn.commit()
 
     def already_processed(self, email_id: str) -> bool:
+        # NOTE: only a *successfully* processed email counts as done.
+        # Rows with status 'error' are intentionally NOT treated as done, so
+        # the agent re-evaluates them on the next run (retry contract — see
+        # agent.py). 'skipped' emails (already-processed dedup) are also done.
         cur = self.conn.execute(
-            "SELECT 1 FROM logs WHERE email_id=? AND status IN ('processed','error') LIMIT 1",
+            "SELECT 1 FROM logs WHERE email_id=? AND status IN ('processed','skipped') LIMIT 1",
             (email_id,),
         )
         return cur.fetchone() is not None

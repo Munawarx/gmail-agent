@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "sender_patterns": {
+    "trashable_senders": {
+      "support@email.vidiq.com": {"frequency": 4, "reason": "vidIQ newsletter (4x deleted)", "confidence": 0.95},
+      "noreply@email.heygen.com": {"frequency": 3, "reason": "HeyGen marketing newsletter", "confidence": 0.90},
+      "notify@blog.reve.com": {"frequency": 2, "reason": "Reve product blog", "confidence": 0.88},
+      "finzar@creator.patreon.com": {"frequency": 2, "reason": "Patreon/Finzar marketing", "confidence": 0.88},
+      "team@kive.ai": {"frequency": 2, "reason": "Kive marketing", "confidence": 0.88},
+      "onboarding@info.n8n.io": {"frequency": 1, "reason": "n8n stale welcome / trial ended", "confidence": 0.85},
+      "admin@akool.io": {"frequency": 1, "reason": "Akool stale welcome", "confidence": 0.85},
+      "hi@roboneo.com": {"frequency": 1, "reason": "RoboNeo stale welcome", "confidence": 0.85}
+    },
+    "expired_transactional": {
+      "receipts@stale-shop.com": {"frequency": 1, "reason": "Expired transactional receipt", "confidence": 0.80}
+    }
+  },
+  "domain_patterns": {
+    "marketing_subdomains": {
+      "e.adobe.com": {"confidence": 0.85},
+      "mail.adobe.com": {"confidence": 0.85},
+      "engage.canva.com": {"confidence": 0.85},
+      "mail.instagram.com": {"confidence": 0.85},
+      "elements.envato.com": {"confidence": 0.85},
+      "m.elements.envato.com": {"confidence": 0.85},
+      "info.alibabacloud.com": {"confidence": 0.85},
+      "comms.runwayml.com": {"confidence": 0.85},
+      "email.vidiq.com": {"confidence": 0.85},
+      "engage.": {"confidence": 0.80},
+      "comms.": {"confidence": 0.80},
+      "mail.": {"confidence": 0.80},
+      "newsletter.": {"confidence": 0.80},
+      "marketing.": {"confidence": 0.80},
+      "promo.": {"confidence": 0.80},
+      "e.": {"confidence": 0.80},
+      "email.": {"confidence": 0.80},
+      "offers.": {"confidence": 0.80},
+      "updates.": {"confidence": 0.80}
+    }
+  },
+  "semantic_patterns": {
+    "newsletter": {"phrases": ["newsletter", "subscribe to our", "unsubscribe from our"], "confidence": 0.75},
+    "product_marketing": {"phrases": ["limited time offer", "upgrade to pro", "get started today", "early access"], "confidence": 0.75},
+    "promotion": {"phrases": ["flash sale", "% off", "shop now", "free shipping", "big savings"], "confidence": 0.75}
+  },
+  "html_patterns": {},
+  "local_part_patterns": {
+    "bulk_senders": ["noreply", "no-reply", "newsletter", "promo", "offers", "marketing", "deals", "sales", "notification"]
+  },
+  "never_trash": {
+    "categories": ["security", "banking", "financial", "legal", "medical", "government", "travel", "personal", "job", "account_recovery"]
+  },
+  "confidence_thresholds": {
+    "auto_trash": 0.80,
+    "flag_for_review": 0.55,
+    "keep": 0.00
+  },
+  "last_feedback_applied": "never",
+  "total_feedback_entries": 0,
+  "total_emails_learned": 0
+}
