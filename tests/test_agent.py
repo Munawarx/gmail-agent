@@ -35,10 +35,28 @@ def test_otp_valid():
     assert c.category == Category.OTP_VALID
 
 
-def test_social_linkedin():
+def test_social_linkedin_kept_for_user():
+    # P26 KEEP list protects Work/Interviews; LinkedIn is professional/career
+    # mail and must NOT be trashed for the account holder. With the account
+    # email injected, linkedin.com is treated as professional -> KEEP.
     e = _email("3", "You have a new connection request", "notifications@linkedin.com",
                body="John sent you a connection request")
-    assert classifier.classify(e).category == Category.SOCIAL
+    e._account_email = "munawar304@gmail.com"
+    assert classifier.classify(e).category == Category.KEEP
+
+
+def test_self_sent_hvac_kept():
+    # User's own HVAC-tagged mail (e.g. a CV) must be kept despite HVAC rule.
+    e = _email("99", "MD Munawar Ali (CV)", "munawar304@gmail.com", body="my hvac resume")
+    e._account_email = "munawar304@gmail.com"
+    assert classifier.classify(e).category == Category.KEEP
+
+
+def test_thirdparty_hvac_trash():
+    # Third-party HVAC marketing (non-professional sender) is trashed.
+    e = _email("98", "HVAC technician needed", "spam@hvacdeals.net", body="hvac job")
+    e._account_email = "munawar304@gmail.com"
+    assert classifier.classify(e).category == Category.PROMO
 
 
 def test_promo():

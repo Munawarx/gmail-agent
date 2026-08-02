@@ -35,6 +35,23 @@ def _sender_domain(sender: str) -> str:
     return s.strip().rstrip(">")
 
 
+def _domain_in(domain: str, roots) -> bool:
+    """Suffix-match a sender domain against a tuple of root domains.
+
+    Matches the root itself OR any subdomain: 'fiverr.com' matches both
+    'fiverr.com' and 'announce.fiverr.com'. Catches the common case where
+    marketing mail comes from a subdomain (notify.linkedin.com,
+    noreply.github.com, announce.fiverr.com) that an exact ``domain in
+    TUPLE`` check would miss.
+    """
+    d = domain.lower().lstrip(".")
+    for r in roots:
+        r = r.lower().lstrip(".")
+        if d == r or d.endswith("." + r):
+            return True
+    return False
+
+
 SOCIAL_DOMAINS = (
     "linkedin.com", "facebook.com", "fb.com", "instagram.com", "threads.net",
     "twitter.com", "reddit.com", "pinterest.com",
@@ -99,12 +116,26 @@ SECURITY_PHRASES = (
     "legal notice", "court", "bank statement", "transaction", "login code",
     "one-time code", "authentication",
 )
+# User rule: HVAC mail is ALWAYS trash (old + new, both accounts).
+HVAC_PHRASES = ("hvac",)
 # Domains whose mail is almost always account/security critical.
 # (Note: bare google.com is intentionally excluded — too broad; its alerts
 #  are still caught by SECURITY_PHRASES e.g. "security alert".)
+# github.com is EXPLICITLY protected per user rule: "never ever trash Github
+# emails" — contributor/PR/repo notifications must always be kept.
 SECURITY_DOMAINS = (
     "accounts.google.com", "discord.com", "roblox.com",
     "paypal.com", "apple.com", "microsoft.com", "amazon.com",
+    "github.com",
+)
+# Professional / Work / Interview / Education mail — P26 explicit KEEP list.
+# Job-board and recruiting correspondence must never be trashed (career-critical).
+PROFESSIONAL_DOMAINS = (
+    "linkedin.com", "indeed.com", "naukri.com", "monsterindia.com",
+    "timesjobs.com", "foundit.in", "unstop.news", "internshala.com",
+    "acciojob-team.org", "crio.in", "crio.co.in", "coachshwetagupta.com",
+    "workindia.in", "workindia.info", "upwork.com", "fiverr.com",
+    "freelancer.com", "bayt.com", "nexhire.in",
 )
 
 
@@ -126,12 +157,31 @@ def classify(email: Email) -> Classification:
                               "OTP detected, still valid — keep", 0.9, code, False)
 
     # 1) IMPORTANT — protect security/account/financial mail (override below)
-    if domain in SECURITY_DOMAINS or any(p in text for p in SECURITY_PHRASES):
+    if _domain_in(domain, SECURITY_DOMAINS) or any(p in text for p in SECURITY_PHRASES):
         return Classification(Category.IMPORTANT,
                               "Security/account/financial — keep", 1.0)
 
+    # 1.2) SELF-SENT + PROFESSIONAL KEEP — never trash your own mail or
+    #      work/interview/education correspondence (P26 + HVAC conflict).
+    acct = getattr(email, "_account_email", "") or ""
+    if acct:
+        user_addr = acct
+    else:
+        user_addr = (config.get_settings().get("user_email", "") or "").lower()
+    if addr == user_addr or addr.endswith("@" + user_addr.split("@")[-1]) \
+            or _domain_in(domain, PROFESSIONAL_DOMAINS):
+        return Classification(Category.KEEP,
+                              "Self-sent or professional/work — keep", 1.0)
+
+    # 1.5) USER RULE: HVAC mail is ALWAYS trash (old + new, both accounts).
+    # Checked after self/professional keep so YOUR own HVAC CVs and job
+    # correspondence are protected, but third-party HVAC marketing is removed.
+    if any(p in text for p in HVAC_PHRASES):
+        return Classification(Category.PROMO,
+                              "User rule: HVAC mail — always trash", 0.95)
+
     # 2) Social
-    if domain in SOCIAL_DOMAINS or any(p in text for p in SOCIAL_PHRASES):
+    if _domain_in(domain, SOCIAL_DOMAINS) or any(p in text for p in SOCIAL_PHRASES):
         return Classification(Category.SOCIAL, "Social media notification", 0.9)
 
     # 3) Promotional
@@ -194,14 +244,19 @@ def classify_with_learning(email: Email, settings: dict | None = None) -> tuple[
     """Full classification pipeline with learned-pattern integration.
 
     Priority (highest first):
-      1. Deterministic safety rules (OTP, IMPORTANT/security) — ALWAYS win
+      1. Deterministic safety rules (OTP, IMPORTANT/security, self/professional) — ALWAYS win
       2. Learned patterns from user's trash behavior (learning.py)
-      3. Deterministic rules (social, promo)
+      3. Deterministic rules (social, promo, HVAC)
       4. LLM escalation (if enabled)
 
     Returns (Classification, action) where action is 'trash' / 'flag' / 'keep'.
     """
     from . import learning
+
+    # Inject the active account's email so self-sent detection works
+    # per-account (the scanner passes the per-account settings dict).
+    if settings and settings.get("user_email"):
+        email._account_email = settings["user_email"].lower()
 
     # ── Tier 1: Deterministic safety — ALWAYS wins ──
     base = classify(email)

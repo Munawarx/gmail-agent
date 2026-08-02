@@ -7,6 +7,10 @@ logs/
 token.json
 credentials.json
 .env
+.env.second
+.jatan_shah_state.json
+.scan_allmail_state.json
+.scan_allmail_state_.env.json
 
 # Local state / databases (contain real email metadata + checkpoints)
 state/*.db
